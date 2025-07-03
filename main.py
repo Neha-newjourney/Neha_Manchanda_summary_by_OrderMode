@@ -90,6 +90,40 @@ def create_regional_summary(summary_data):
     
     return regional_summary
 
+def summarize_sales_by_order_mode(sales_data):
+    """Summarize total sales by Order Mode"""
+    if sales_data is None:
+        return None
+    
+    if 'Order Mode' not in sales_data.columns or 'Sales' not in sales_data.columns:
+        print("Missing required columns: 'Order Mode' or 'Sales'")
+        return None
+    
+    # Group by Order Mode and calculate summary statistics
+    order_mode_summary = sales_data.groupby('Order Mode').agg({
+        'Sales': ['sum', 'mean', 'count'],
+        'Quantity': 'sum',
+        'Discount': 'mean'
+    }).round(2)
+    
+    # Flatten column names
+    order_mode_summary.columns = ['_'.join(col).strip() for col in order_mode_summary.columns.values]
+    
+    # Rename columns for clarity
+    order_mode_summary = order_mode_summary.rename(columns={
+        'Sales_sum': 'Total_Sales',
+        'Sales_mean': 'Average_Sales_Per_Order',
+        'Sales_count': 'Number_of_Orders',
+        'Quantity_sum': 'Total_Quantity',
+        'Discount_mean': 'Average_Discount_Rate'
+    })
+    
+    # Calculate percentage of total sales
+    total_sales = order_mode_summary['Total_Sales'].sum()
+    order_mode_summary['Sales_Percentage'] = (order_mode_summary['Total_Sales'] / total_sales * 100).round(2)
+    
+    return order_mode_summary
+
 def main():
     print("=== Sales Data Analysis by Region and Segment ===\n")
     
@@ -110,14 +144,23 @@ def main():
         # Analyze data
         print("\n=== Analysis Results ===")
         
+        # 1. Sales Summary by Order Mode
+        print("\n1. Sales Summary by Order Mode:")
+        order_mode_summary = summarize_sales_by_order_mode(sales_data)
+        if order_mode_summary is not None:
+            print(order_mode_summary)
+            order_mode_summary.to_csv('sales_summary_by_order_mode.csv')
+            print("Order Mode summary saved to 'sales_summary_by_order_mode.csv'")
+        
+        # 2. Regional analysis (if store locations available)
         if store_locations is not None:
             summary = analyze_sales_by_region_segment(sales_data, store_locations)
             
             if summary is not None:
-                print("\n1. Sales Summary by Region and Segment:")
+                print("\n2. Sales Summary by Region and Segment:")
                 print(summary)
                 
-                print("\n2. Regional Summary:")
+                print("\n3. Regional Summary:")
                 regional_summary = create_regional_summary(summary)
                 if regional_summary is not None:
                     print(regional_summary)
@@ -126,9 +169,9 @@ def main():
                 summary.to_csv('sales_summary_by_region_segment.csv')
                 if regional_summary is not None:
                     regional_summary.to_csv('regional_summary.csv')
-                print("\nResults saved to CSV files")
+                print("\nRegional analysis results saved to CSV files")
             else:
-                print("Could not perform analysis due to missing columns")
+                print("Could not perform regional analysis due to missing columns")
         else:
             print("Cannot perform regional analysis without store locations data")
     else:
