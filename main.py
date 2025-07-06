@@ -50,8 +50,41 @@ def summarize_by_order_mode(df):
     
     return order_mode_summary
 
+def analyze_product_performance(df):
+    """Analyze product performance by revenue"""
+    
+    if df is None:
+        print("No data to analyze")
+        return None, None
+    
+    # Group by Product Name and calculate metrics
+    product_analysis = df.groupby('Product Name').agg({
+        'Sales': ['sum', 'mean', 'count'],
+        'Quantity': 'sum',
+        'Cost Price': 'sum',
+        'Discount': 'mean'
+    }).round(2)
+    
+    # Flatten column names
+    product_analysis.columns = ['Total_Revenue', 'Avg_Revenue_Per_Sale', 'Total_Orders', 
+                               'Total_Quantity_Sold', 'Total_Cost', 'Avg_Discount']
+    
+    # Calculate additional metrics
+    product_analysis['Profit'] = product_analysis['Total_Revenue'] - product_analysis['Total_Cost']
+    product_analysis['Profit_Margin'] = (product_analysis['Profit'] / product_analysis['Total_Revenue'] * 100).round(2)
+    product_analysis['Revenue_Percentage'] = (product_analysis['Total_Revenue'] / product_analysis['Total_Revenue'].sum() * 100).round(2)
+    
+    # Sort by revenue
+    product_analysis = product_analysis.sort_values('Total_Revenue', ascending=False)
+    
+    # Get top 5 and bottom 5
+    top_5_products = product_analysis.head(5)
+    bottom_5_products = product_analysis.tail(5)
+    
+    return top_5_products, bottom_5_products
+
 def main():
-    print("=== Sales Data Analysis by Order Mode ===\n")
+    print("=== Sales Data Analysis ===\n")
     
     # Load sales data
     print("Loading sales data...")
@@ -74,7 +107,7 @@ def main():
             print(f"\nDetailed summary saved to 'order_mode_detailed_summary.csv'")
             
             # Print key insights
-            print("\n=== Key Insights ===")
+            print("\n=== Order Mode Key Insights ===")
             total_sales = order_mode_summary['Total_Sales'].sum()
             print(f"Total Sales: ${total_sales:,.2f}")
             
@@ -90,6 +123,64 @@ def main():
                 print(f"  - Orders: {orders:,}")
                 print(f"  - Avg Order Value: ${avg_order:,.2f}")
                 print(f"  - Profit Margin: {profit_margin}%")
+        
+        # Product Performance Analysis
+        print("\n" + "="*60)
+        print("=== PRODUCT PERFORMANCE ANALYSIS BY REVENUE ===")
+        print("="*60)
+        
+        top_5, bottom_5 = analyze_product_performance(sales_df)
+        
+        if top_5 is not None and bottom_5 is not None:
+            
+            # Top 5 Best-Selling Products
+            print("\n🏆 TOP 5 BEST-SELLING PRODUCTS BY REVENUE:")
+            print("-" * 50)
+            for i, (product, data) in enumerate(top_5.iterrows(), 1):
+                print(f"{i}. {product}")
+                print(f"   Revenue: ${data['Total_Revenue']:,.2f} ({data['Revenue_Percentage']:.2f}% of total)")
+                print(f"   Orders: {data['Total_Orders']:,} | Quantity Sold: {data['Total_Quantity_Sold']:,}")
+                print(f"   Avg Revenue/Sale: ${data['Avg_Revenue_Per_Sale']:,.2f}")
+                print(f"   Profit Margin: {data['Profit_Margin']:.2f}%")
+                print()
+            
+            # Bottom 5 Underperforming Products
+            print("📉 TOP 5 UNDERPERFORMING PRODUCTS BY REVENUE:")
+            print("-" * 50)
+            for i, (product, data) in enumerate(bottom_5.iterrows(), 1):
+                print(f"{i}. {product}")
+                print(f"   Revenue: ${data['Total_Revenue']:,.2f} ({data['Revenue_Percentage']:.2f}% of total)")
+                print(f"   Orders: {data['Total_Orders']:,} | Quantity Sold: {data['Total_Quantity_Sold']:,}")
+                print(f"   Avg Revenue/Sale: ${data['Avg_Revenue_Per_Sale']:,.2f}")
+                print(f"   Profit Margin: {data['Profit_Margin']:.2f}%")
+                print()
+            
+            # Save detailed product analysis
+            full_product_analysis = analyze_product_performance(sales_df)[0].reset_index()
+            if len(analyze_product_performance(sales_df)[1]) > 0:
+                full_analysis = pd.concat([
+                    analyze_product_performance(sales_df)[0], 
+                    analyze_product_performance(sales_df)[1]
+                ]).sort_values('Total_Revenue', ascending=False)
+                full_analysis.to_csv('product_performance_analysis.csv')
+                print(f"📊 Complete product performance analysis saved to 'product_performance_analysis.csv'")
+            
+            # Summary Statistics
+            print("\n=== PRODUCT PERFORMANCE SUMMARY ===")
+            total_products = len(sales_df['Product Name'].unique())
+            top_5_revenue = top_5['Total_Revenue'].sum()
+            total_revenue = sales_df['Sales'].sum()
+            top_5_percentage = (top_5_revenue / total_revenue) * 100
+            
+            print(f"Total Products Analyzed: {total_products}")
+            print(f"Top 5 Products Revenue: ${top_5_revenue:,.2f} ({top_5_percentage:.1f}% of total sales)")
+            print(f"Best Performing Product: {top_5.index[0]} (${top_5.iloc[0]['Total_Revenue']:,.2f})")
+            print(f"Least Performing Product: {bottom_5.index[-1]} (${bottom_5.iloc[-1]['Total_Revenue']:,.2f})")
+            
+            revenue_gap = top_5.iloc[0]['Total_Revenue'] - bottom_5.iloc[-1]['Total_Revenue']
+            print(f"Revenue Gap (Best vs Worst): ${revenue_gap:,.2f}")
+    else:
+        print("Failed to load sales data. Please check the file path and encoding.")
 
 if __name__ == "__main__":
     main()
